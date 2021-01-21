@@ -9,9 +9,11 @@ The steps taken are:
 
 - `git remote get-url origin` - Find the URL for the working folder or folder you specify ()
 - `git branch` List local branches
-- `git -ls-remote --heads [BRANCH NAME]` Iterate branches and check which ones still exists in remote repository
-- If found - will let you confirm to delete these branches
-  - `git branch -d [BRANCH NAME]`
+- `bit branch -r` - List remote branches
+- If a local branch does not exist in remote repository:
+    - `git log --branches --not --remotes --source` will be run to see if the branch has any pending commits
+- User will confirm to delete ZOMBIE marked branches, and then for each branch:
+    - `git branch -d [BRANCH NAME]` Delete branch
 
 
 If a branch has unpushed changes it will not be flagged for deletion
