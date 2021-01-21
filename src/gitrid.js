@@ -9,6 +9,14 @@ const fs = require('fs');
 let workingFolder = path.resolve('./');
 let automaticallySayYes = false;
 
+
+if (argv.length === 3 && (argv[2] === '--version' || argv[2] === '-v')) {
+    const packageContent = fs.readFileSync( path.join(__dirname, '../', 'package.json'));
+    const packageJson = JSON.parse(packageContent);
+    loginfo(`Gitrid Version ${packageJson.version}`);
+    return;
+}
+
 async function confirm(question) {
     let confirmed = false;
     return new Promise((resolve, reject) => {
@@ -101,16 +109,32 @@ if (process.argv.length > 2) {
         const gitUrl = await getRepositoryUrl();
         loginfo(`Found repository url '{color:cyan}${gitUrl}{color}' for folder '{color:cyan}${workingFolder}{color}'`);
 
-        const branches = await getLocalBranches();
-        loginfo(`Found {color:cyan}${branches.length}{color} local branches`);
+        const {active, branches } = await getLocalBranches();
+        const remoteBranches = await getRemoteBranches();
+
+        loginfo(`Found {color:cyan}${branches.length}{color} local branches and {color:cyan}${remoteBranches.length}{color} remote branches`);
 
         let branchesToDelete = [];
 
         for (let i = 0; i < branches.length; i++) {
-            const remoteBranchExists = await testRemoteBranchExists(gitUrl, branches[i]);
+            const remoteBranchExists = remoteBranches.includes(branches[i]);
 
             if (!remoteBranchExists) {
-                loginfo(`[{color:yellow}ZOMBIE{color}] Branch '{color:yellow}${branches[i]}{color}' only exists locally`)
+
+                if (active === branches[i]) {
+                    loginfo(`[{color:yellow} (OK) {color}] Branch '{color:yellow}${branches[i]}{color}' only exists locally but is active and can not be deleted`);
+                    continue;
+                }
+
+                const hasPendingCommits = await branchHasPendingCommits(branches[i]);
+
+                if (hasPendingCommits) {
+                    loginfo(`[{color:yellow} (OK) {color}] Branch '{color:yellow}${branches[i]}{color}' only exists locally but has pending commits and can not be deleted`);
+                    continue;
+                }
+
+                loginfo(`[{color:yellow}ZOMBIE{color}] Branch '{color:yellow}${branches[i]}{color}' only exists locally`);
+
                 branchesToDelete.push(branches[i] );
             } else {
                 loginfo(`[{color:green}  OK  {color}] Branch '${branches[i]}' exists in remote repository`)
@@ -120,7 +144,7 @@ if (process.argv.length > 2) {
         if (branchesToDelete.length > 0) {
             loginfo(null);
             loginfo(null);
-            const deleteThem = await confirm(`{color:yellow}REMOVE ${branchesToDelete.length} BRANCH${branchesToDelete.length > 1 ? 'ES' : ''}?{color} (y/n): `);
+            const deleteThem = await confirm(`{color:yellow}REMOVE ${branchesToDelete.length} ZOMBIE BRANCH${branchesToDelete.length > 1 ? 'ES' : ''}?{color} (y/n): `);
             
             if (deleteThem) {
                 for (var i = 0; i < branchesToDelete.length; i++) {
@@ -147,6 +171,44 @@ if (process.argv.length > 2) {
 })();
 
 
+let gitLogNotRemotes = null;
+
+function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
+  }
+
+async function branchHasPendingCommits(name) {
+
+
+    if (!gitLogNotRemotes) {
+        var { code, data } = await executeCommand('git', ['log', '--branches', '--not', '--remotes', '--source']);
+        if (code === 0) {
+            data = data.trim();
+            gitLogNotRemotes = data;
+        } else {
+            loginfo(`{color:red}Failed{color} Could not get repository URL for folder '{color:cyan}${workingFolder}{color}' ({color:yellow}git remote get-url origin{color})`);
+            loginfo(`{color:red}${data}`);
+            process.exit(1);
+        }
+    }
+
+    var re = new RegExp(`commit [a-z0-9]+\t+${escapeRegExp(name)}`, 'ig');
+    re.global = true;
+    re.ignoreCase = true;
+    re.multiline = true;
+
+    const mama = re.exec(gitLogNotRemotes);
+    if (mama) {
+        return true;
+    }
+
+    return false;
+
+    // Check git log --branches --not --remotes 
+    // See if we have any rows matching commit 175c4235190472e4115cb3b841d5dc6b96ef9384 (HEAD -> pbi/33452-wizard-summary-step)
+    // where pbi/33452-wizard-summary-step is the branch name.... Then it's probably a brand new branch with pending commits
+
+}
 
 async function getRepositoryUrl() {
     var { code, data } = await executeCommand('git', ['remote', 'get-url', 'origin']);
@@ -173,17 +235,41 @@ async function deleteLocalBranch(branchName) {
 
 async function getLocalBranches() {
     var { code, data } = await executeCommand('git', ['branch']);
+    const currentRegex = /^[\s\*]+/;
+    let active = '';
     if (code === 0) {
         data = data.trim();
-        return data.split('\n').map(branchLine => {
-            return branchLine.replace(/^[\s*]+/, '');
+        let branches = data.split('\n').map(branchLine => {
+            if (branchLine.indexOf('*') === 0) {
+                active = branchLine.replace(currentRegex, '');
+            }
+            return branchLine.replace(currentRegex, '');
         });
+
+        return { active, branches };
     }
-    loginfo(`{color:red}Failed{color} Could not get local branches URL for folder '{color:cyan}${workingFolder}{color}' ({color:yellow}git branch{color})`);
+    loginfo(`{color:red}Failed{color} Could not get local branches for folder '{color:cyan}${workingFolder}{color}' ({color:yellow}git branch{color})`);
     loginfo(`{color:red}${data}`);
     process.exit(1);
 }
 
+async function getRemoteBranches() {
+    var { code, data } = await executeCommand('git', ['branch', '-r']);
+    const currentRegex = /^\s*origin\/+/;
+    if (code === 0) {
+        data = data.trim();
+        let branches = data.split('\n').map(branchLine => {
+            return branchLine.replace(currentRegex, '');
+        });
+
+        return branches;
+    }
+    loginfo(`{color:red}Failed{color} Could not get remote branches for folder '{color:cyan}${workingFolder}{color}' ({color:yellow}git branch -r{color})`);
+    loginfo(`{color:red}${data}`);
+    process.exit(1);
+}
+
+// Maybe we will not need this at all. Leaving it for now though...
 async function testRemoteBranchExists(repositoryUrl, branchName) {
     var { code, data } = await executeCommand('git', ['ls-remote', '--heads', repositoryUrl, branchName]);
     if (code === 0) {

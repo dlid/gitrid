@@ -1,6 +1,6 @@
 {
   "name": "gitrid",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "Script delete local git branches if they do not exist in remote repository",
   "main": "src/gitrid.js",
   "scripts": {
