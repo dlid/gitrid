@@ -1,0 +1,20 @@
+{
+  "name": "gitrid",
+  "version": "1.0.0",
+  "description": "Script delete local git branches if they do not exist in remote repository",
+  "main": "src/gitrid.js",
+  "scripts": {
+    "build": "node ./build-npm.js",
+    "publish": "npm publish ./dist/release --access public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dlid/gitrid.git"
+  },
+  "author": "David Lidström",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/dlid/gitrid/issues"
+  },
+  "homepage": "https://github.com/dlid/gitrid#readme"
+}
