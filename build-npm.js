@@ -89,20 +89,8 @@ function createNpmFiles() {
     loginfo(`Creating ${targetFolder}bin/index.js`);
 
     let debugInfo = '';
-    if (!isRelease) {
-        debugInfo = `console.log('###\\n###\\### \x1b[1m\x1b[33mGITRID DEVELOPMENT BUILD\x1b[0m. USE npm run build to create release.\\n###\\n\\n');\n`;
-    }
-
     fs.writeFileSync(`./${targetFolder}bin/index.js`, `#!/usr/bin/env node
-${debugInfo}require('../lib/run');
+${debugInfo}require('../lib/gitrid');
     `);
-
- 
-// getSize(`./${targetFolder}`, (err, size) => {
-//   if (err) { throw err; }
- 
-//   loginfo(bytesToSize(size));
-// });
-
 
 } 
