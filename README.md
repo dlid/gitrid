@@ -13,6 +13,11 @@ The steps taken are:
 - If found - will let you confirm to delete these branches
   - `git branch -d [BRANCH NAME]`
 
+
+If a branch has unpushed changes it will not be flagged for deletion
+
+If a branch is active it will not be flagged for deletion
+
 # Installation
 
 Install it globally for easy access
