@@ -9,6 +9,7 @@ Simple tool to delete local git branches that are no longer used
 - If a branch has unpushed changes it will not be flagged for deletion
 - If a branch is active it will not be flagged for deletion
 
+
 # Installation
 
 Install it globally for easy access
