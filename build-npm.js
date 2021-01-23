@@ -1,5 +1,6 @@
 const fs = require('fs');
 const { argv } = require('process');
+const { pathToFileURL } = require('url');
 const packageContent = fs.readFileSync('./package.json');
 // const getSize = require('get-folder-size');
 const packageJson = JSON.parse(packageContent);
@@ -24,9 +25,9 @@ fs.mkdirSync(`./${targetFolder}/lib/`, {recursive: true});
 fs.mkdirSync(`./${targetFolder}/bin/`, {recursive: true});
 
 
-loginfo(`Copying gitrid.js`);
-fs.copyFileSync('./src/gitrid.js', `./${targetFolder}/lib/gitrid.js`);
-
+loginfo(`Copying scripts from src`);
+fs.readdirSync('./src')
+    .forEach(filename => fs.copyFileSync(`./src/${filename}`, `./${targetFolder}/lib/${filename}`));
 
 
 //replaceVersionNumber();
