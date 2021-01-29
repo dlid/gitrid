@@ -62,6 +62,7 @@ Gitrid will perform the following actions:
 
 # Change log
 
+- 1.0.5 - Reworked how remote branches are checked. Previous didn't work very well. Fixed issue where --verbose did not work
 - 1.0.4 - Less output by default. Rearranged some code. Added --verbose, --silent, --plain-text, --help options
 - 1.0.3 - Remote branches are now received once, and not per local branch
 - 1.0.2 - Added check to see if local-only branch has any commits. This will not be flagged for deletion

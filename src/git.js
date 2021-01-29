@@ -5,6 +5,9 @@ class GitHelper {
 
     #workingDirectory;
     #workingDirectoryValidated = false;
+    #repositoryUrl;
+    #checkOfPendingCommitsCache;
+    #checkOfPendingCommitsDone;
 
     /**
      *Creates an instance of GitHelper for the given directory path
@@ -51,12 +54,12 @@ class GitHelper {
      */
     async #getRemoteBranches() {
 
-        var { code, data } = await this.#executeGitCommand('branch', '-r');
-        const currentRegex = /^\s*origin\/+/;
+        var { code, data } = await this.#executeGitCommand('ls-remote', '--heads', this.#repositoryUrl);
+        const currentRegex = /.*?\trefs\/heads\/(.+)$/;
         if (code === 0) {
             data = data.trim();
             let branches = data.split('\n').map(branchLine => {
-                return branchLine.replace(currentRegex, '');
+                return branchLine.replace(currentRegex, '$1');
             });
     
             return branches;
@@ -74,28 +77,26 @@ class GitHelper {
      * @return {Promise<Array<{ branchName: string, error?: string }>>}
      */
     async getZombieBranches() {
+        const self = this;
+
+        log.info('Validating repository...');
         await this.#validateRepository();
         
+        log.info('Gathering info about your branches...');
         const { active, localBranches } = await this.#getLocalBranches();
         const remoteBranches = await this.#getRemoteBranches();
 
-        // Return all local branches
-        return Promise.all(localBranches 
-
-            // That do not exist in array of remote branches
-            .filter(localBranch => !remoteBranches.includes(localBranch))
-
-            // Map them into our own object with error details if there are any issues
-            .map(async localBranch => {
-                let error = active === localBranch ? 'Only exists locally but is {color:green}checked out{color} and can not be deleted' : null;
-                
-                error = error ? error : (await this.#branchHasPendingCommits(localBranch) ? 'Only exists locally but has unpushed content' : '');
-
-                return {
-                    branchName: localBranch,
-                    error: error 
-                }
-            }));
+        const zombieBranches = localBranches.filter(localBranch => !remoteBranches.includes(localBranch));
+        let result = [];
+        for (let i=0; i < zombieBranches.length; i++) {
+            let error = active === zombieBranches[i] ? 'Only exists locally but is {color:green}checked out{color} and can not be deleted' : null;
+            error = error ? error : (await this.#branchHasPendingCommits(zombieBranches[i]) ? 'Only exists locally but has unpushed content' : '');
+            result.push({
+                branchName: zombieBranches[i],
+                error: error 
+            });
+        }
+        return result;
     }
 
     #escapeRegExp(string) {
@@ -115,18 +116,22 @@ class GitHelper {
 
 
     async #branchHasPendingCommits(name) {
-        var { code, data } = await this.#executeGitCommand('log', '--branches', '--not', '--remotes', '--source');
-        if (code === 0) {
-            data = data.trim();
-        } else {
-            log.info(`{color:red}Failed{color} Could not run git log for folder '{color:cyan}${config.workingFolder}{color}' ({color:yellow}git log --branches --not --remotes --sources{color})`);
-            log.info(`{color:red}${data}`);
-            process.exit(1);
+        if (!this.#checkOfPendingCommitsDone) {
+            var { code, data } = await this.#executeGitCommand('log', '--branches', '--not', '--remotes', '--source');
+            if (code === 0) {
+                data = data.trim();
+                this.#checkOfPendingCommitsCache = data;
+                this.#checkOfPendingCommitsDone = true;
+            } else {
+                log.info(`{color:red}Failed{color} Could not run git log for folder '{color:cyan}${config.workingFolder}{color}' ({color:yellow}git log --branches --not --remotes --sources{color})`);
+                log.info(`{color:red}${data}`);
+                process.exit(1);
+            }
         }
     
         var re = new RegExp(`commit [a-z0-9]+\t+${this.#escapeRegExp(name)}`, 'igm');
     
-        const mama = re.exec(data);
+        const mama = re.exec(this.#checkOfPendingCommitsCache);
         if (mama) {
             return true;
         }
@@ -149,6 +154,7 @@ class GitHelper {
         if (code === 0) {
             this.#workingDirectoryValidated = true;
             data = data.trim();
+            this.#repositoryUrl = data;
             return data;
         }
         log.error(`{color:red}Failed{color} Could not get repository URL for folder '{color:cyan}${this.#workingDirectory}{color}' ({color:yellow}git remote get-url origin{color})`);

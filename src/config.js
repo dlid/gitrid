@@ -59,7 +59,7 @@ class AppConfig {
                 log.disableColors();
                 args.splice(ix, 1);
             }
-        
+
             if (args.length === 1) {
                 const pathFromArgument = path.resolve(args[0]);
                 if (fs.existsSync(pathFromArgument)) {
@@ -67,7 +67,7 @@ class AppConfig {
                 } else {
                     log.fail(`{color:red}Failed{color} Path not found '{color:yellow}${pathFromArgument}{color}'`);
                 }
-            } else {
+            } else if (args.length > 1) {
                 log.fail(`{color:red}Failed{color} Unknown parameter '{color:yellow}${args[1]}{color}'`);
             }
         }
