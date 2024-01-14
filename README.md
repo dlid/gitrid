@@ -1,3 +1,5 @@
+[![build](https://github.com/dlid/gitrid/actions/workflows/main.yml/badge.svg)](https://github.com/dlid/gitrid/actions/workflows/main.yml)
+
 # @dlid/gitrid
 
 Simple tool to delete local git branches that are no longer used
